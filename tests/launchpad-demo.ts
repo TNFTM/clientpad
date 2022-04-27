@@ -24,7 +24,8 @@ const token_vaulter = anchor.web3.Keypair.generate();
 const usdc_vaulter = anchor.web3.Keypair.generate();
 const sol_vaulter = anchor.web3.Keypair.generate();
 const user1 = anchor.web3.Keypair.generate();
-const one = 1_000_000_000;
+const one_tkn = 1_000_000_000;
+const one_usdc = 1_000_000;
 
 let mintKeyTKN;
 let mintObjectTKN;
@@ -42,7 +43,7 @@ let user1_usdc_acc;
 const idoName = 'pool1';
 
 const amount_TKN = 1000_000_000_000;
-const amount_USDC = 100_000_000;
+const amount_USDC = 1000_000_000;
 
 describe("launchpad-demo", () => {
   // Configure the client to use the local cluster.
@@ -104,7 +105,7 @@ describe("launchpad-demo", () => {
     const vaulter_amount = await getTokenBalance(token_vaulter_acc);
     assert.equal(vaulter_amount, amount_TKN)
 
-    vaulter_usdc_acc = await mintObjectUSDC.createAssociatedTokenAccount(token_vaulter.publicKey);
+    vaulter_usdc_acc = await mintObjectUSDC.createAssociatedTokenAccount(usdc_vaulter.publicKey);
     user1_tkn_acc = await mintObjectTKN.createAssociatedTokenAccount(user1.publicKey);
     user1_usdc_acc = await mintObjectUSDC.createAssociatedTokenAccount(user1.publicKey);
 
@@ -117,8 +118,22 @@ describe("launchpad-demo", () => {
 
     const user1_usdc_amount = await getTokenBalance(user1_usdc_acc);
     assert.equal(user1_usdc_amount, amount_USDC)
-
   });
+
+  const approve = async (amount: number, distributor: PublicKey) => {
+    let uAmount: u64 = new u64(
+      new u64(amount).mul(new u64(1_000_000_000)).toString(),
+    );
+
+    await mintObjectTKN.approve(
+      token_vaulter_acc,
+      distributor,
+      token_vaulter as Signer,
+      [],
+      uAmount,
+    );
+  }
+
 
   it("Is initialized!", async () => {
     const [ido_account_key, ido_account_bump] = await PublicKey.findProgramAddress(
@@ -147,12 +162,97 @@ describe("launchpad-demo", () => {
         rent: anchor.web3.SYSVAR_RENT_PUBKEY,
       })
       .rpc();
+
+    await approve(1000, ido_account_key);
+    console.log("Your transaction signature", tx);
+  });
+
+  it("Exchange Usdc", async () => {
+    const [ido_account_key, ido_account_bump] = await PublicKey.findProgramAddress(
+      [Buffer.from(idoName)],
+      program.programId
+    );
+
+    const token_amount = 100;
+    const tx = await program.methods.exchangeUsdc(
+      getBnTokenAmount(token_amount),
+    )
+      .accounts({
+        userAuthority: user1.publicKey,
+        userUsdc: user1_usdc_acc,
+        idoAccount: ido_account_key,
+        usdcMint: mintKeyUSDC.publicKey,
+        usdcVaultAccount: vaulter_usdc_acc,
+        tokenMint: mintKeyTKN.publicKey,
+        tokenFrom: token_vaulter_acc,
+        userTokenAccount: user1_tkn_acc,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      })
+      .signers([user1])
+      .rpc();
+
+    const user1_usdc_amount = await getTokenBalance(user1_usdc_acc);
+    assert.equal(user1_usdc_amount, amount_USDC - 100 * one_usdc);
+
+    const user1_tkn_amount = await getTokenBalance(user1_tkn_acc);
+    assert.equal(user1_tkn_amount, token_amount * one_tkn);
+
+    console.log("Your transaction signature", tx);
+  });
+
+  it("Exchange Sol", async () => {
+    const [ido_account_key, ido_account_bump] = await PublicKey.findProgramAddress(
+      [Buffer.from(idoName)],
+      program.programId
+    );
+
+    const token_amount = 200;
+
+    const before_user1_tkn_amount = await getTokenBalance(user1_tkn_acc);
+
+    const tx = await program.methods.exchangeSol(
+      getBnTokenAmount(token_amount),
+    )
+      .accounts({
+        userAuthority: user1.publicKey,
+        idoAccount: ido_account_key,
+        solVault: sol_vaulter.publicKey,
+        tokenMint: mintKeyTKN.publicKey,
+        tokenFrom: token_vaulter_acc,
+        userTokenAccount: user1_tkn_acc,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      })
+      .signers([user1])
+      .rpc();
+
+    const new_user1_tkn_amount = await getTokenBalance(user1_tkn_acc);
+    assert.equal(new_user1_tkn_amount - before_user1_tkn_amount, token_amount * one_tkn);
+
+    const solAmount = await getSolanaBalance(sol_vaulter.publicKey);
+    assert.equal(solAmount, 2 * one_tkn);
+
     console.log("Your transaction signature", tx);
   });
 });
+
+async function getSolanaBalance(pubkey) {
+  return await anchor.getProvider().connection.getBalance(pubkey);
+}
 
 async function getTokenBalance(pubkey) {
   return parseInt(
     (await anchor.getProvider().connection.getTokenAccountBalance(pubkey)).value.amount
   );
+}
+
+function getBnTokenAmount(tokenAmount: number) {
+  return new anchor.BN(tokenAmount).mul(new anchor.BN(1_000_000_000));
+}
+
+function getBnUSDCAmount(tokenAmount: number) {
+  return new anchor.BN(tokenAmount).mul(new anchor.BN(1_000_000));
 }

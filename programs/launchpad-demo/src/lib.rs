@@ -79,7 +79,7 @@ pub mod launchpad_demo {
         token_amount: u64,
     ) -> Result<()> {
         // todo fix usdc amount
-        let usdc_amount: u64 = 100 * 1_000_000_000;
+        let usdc_amount: u64 = 100 * 1_000_000;
 
         let cpi_accounts = token::Transfer {
             from: ctx.accounts.user_usdc.to_account_info(),
@@ -117,7 +117,7 @@ pub mod launchpad_demo {
         ctx: Context<ExchangeSol>,
         token_amount: u64,
     ) -> Result<()> {
-        // todo fix usdc amount
+        // todo fix sol amount
         let sol_amount: u64 = 2 * 1_000_000_000;
 
         invoke(
