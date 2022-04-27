@@ -30,7 +30,7 @@ async function mintToAccount(
         amount
       )
     );
-    await provider.send(tx);
+    await provider.sendAndConfirm(tx);
 }
 
 async function sendLamports(
@@ -48,7 +48,7 @@ async function sendLamports(
             }
         )
     );
-    await provider.send(tx);
+    await provider.sendAndConfirm(tx);
 }
 
 async function createMint(
@@ -92,7 +92,7 @@ async function createMint(
         ),
     );
   
-    await provider.send(transaction, [mintAccount]);
+    await provider.sendAndConfirm(transaction, [mintAccount]);
     return token;
 }
 

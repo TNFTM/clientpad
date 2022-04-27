@@ -23,7 +23,7 @@ pub mod constants {
     pub const LAUNCHPAD_PDA_SEED: &[u8] = b"launchpad";
 }
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("n7g1A1RFUJNSUdfvgWE7dqf7G9QoBbBguTZdUM94HdL");
 
 #[cfg(not(feature = "local-testing"))]
 pub mod token_constants {
