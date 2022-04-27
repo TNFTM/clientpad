@@ -25,19 +25,8 @@ pub mod constants {
 
 declare_id!("n7g1A1RFUJNSUdfvgWE7dqf7G9QoBbBguTZdUM94HdL");
 
-#[cfg(not(feature = "local-testing"))]
-pub mod token_constants {
-    pub const TKN_TOKEN_MINT_PUBKEY: &str = "teST1ieLrLdr4MJPZ7i8mgSCLQ7rTrPRjNnyFdHFaz9";
-    // pub const TKN_TOKEN_MINT_PUBKEY: &str = "teST1ieLrLdr4MJPZ7i8mgSCLQ7rTrPRjNnyFdHFaz9";
-}
-
-#[cfg(feature = "local-testing")]
-pub mod token_constants {
-    pub const TKN_TOKEN_MINT_PUBKEY: &str = "teST1ieLrLdr4MJPZ7i8mgSCLQ7rTrPRjNnyFdHFaz9";
-}
-
 const USDC_DECIMALS: u8 = 6;
-const SOL_DECIMALS: u8 = 9;
+const GOV_DECIMALS: u8 = 9;
 
 #[program]
 pub mod launchpad_demo {
@@ -47,7 +36,7 @@ pub mod launchpad_demo {
         ctx: Context<Initialize>,
         ido_name: String,
         _bumps: PoolBumps,
-        tkn_vault: Pubkey,
+        gov_vault: Pubkey,
         usdc_vault: Pubkey,
         sol_vault: Pubkey,
         sol_amount_for_token: u64,
@@ -64,7 +53,8 @@ pub mod launchpad_demo {
             ido_account: *ctx.bumps.get("ido_account").unwrap(),
         };
         ido_account.ido_authority = ctx.accounts.ido_authority.key();
-        ido_account.tkn_vault = tkn_vault;
+        ido_account.gov_mint = ctx.accounts.gov_mint.key();
+        ido_account.gov_vault = gov_vault;
         ido_account.usdc_mint = ctx.accounts.usdc_mint.key();
         ido_account.usdc_vault = usdc_vault;
         ido_account.sol_vault = sol_vault;
@@ -169,6 +159,9 @@ pub struct Initialize<'info> {
     )]
     pub ido_account: Box<Account<'info, IdoAccount>>,
 
+    #[account(constraint = gov_mint.decimals == GOV_DECIMALS)]
+    pub gov_mint: Box<Account<'info, Mint>>,
+
     #[account(constraint = usdc_mint.decimals == USDC_DECIMALS)]
     pub usdc_mint: Box<Account<'info, Mint>>,
 
@@ -201,13 +194,13 @@ pub struct ExchangeUsdc<'info> {
     pub usdc_vault_account: Box<Account<'info, TokenAccount>>,
 
     #[account(
-    address = token_constants::TKN_TOKEN_MINT_PUBKEY.parse::<Pubkey>().unwrap(),
+    address = ido_account.gov_mint,
     )]
     pub token_mint: Box<Account<'info, Mint>>,
 
     #[account(
     mut,
-    constraint = token_from.owner == ido_account.tkn_vault,
+    constraint = token_from.owner == ido_account.gov_vault,
     constraint = token_from.mint == token_mint.key()
     )]
     pub token_from: Box<Account<'info, TokenAccount>>,
@@ -241,13 +234,13 @@ pub struct ExchangeSol<'info> {
     pub sol_vault: UncheckedAccount<'info>,
 
     #[account(
-    address = token_constants::TKN_TOKEN_MINT_PUBKEY.parse::<Pubkey>().unwrap(),
+    address = ido_account.gov_mint,
     )]
     pub token_mint: Box<Account<'info, Mint>>,
 
     #[account(
     mut,
-    constraint = token_from.owner == ido_account.tkn_vault,
+    constraint = token_from.owner == ido_account.gov_vault,
     constraint = token_from.mint == token_mint.key()
     )]
     pub token_from: Box<Account<'info, TokenAccount>>,
@@ -271,7 +264,8 @@ pub struct IdoAccount {
     pub bumps: PoolBumps,   // 1
 
     pub ido_authority: Pubkey, // 32
-    pub tkn_vault: Pubkey,      // 32
+    pub gov_mint: Pubkey,       // 32
+    pub gov_vault: Pubkey,      // 32
 
     pub usdc_mint: Pubkey,       // 32
     pub usdc_vault: Pubkey,       // 32
@@ -284,7 +278,7 @@ pub struct IdoAccount {
 }
 
 impl IdoAccount {
-    pub const LEN: usize = 10 + 1 + 32 + 32 + 3 * 32 + 8 + 8 + 8 + 8;
+    pub const LEN: usize = 10 + 1 + 6 * 32 + 8 + 8 + 8 + 8;
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Default, Clone)]

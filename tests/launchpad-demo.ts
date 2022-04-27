@@ -27,9 +27,12 @@ const user1 = anchor.web3.Keypair.generate();
 const one_tkn = 1_000_000_000;
 const one_usdc = 1_000_000;
 
-let mintKeyTKN;
-let mintObjectTKN;
-let mintPubkeyTKN;
+const gov_token = anchor.web3.Keypair.generate();
+const usdc_token = anchor.web3.Keypair.generate();
+
+let mintKeyGOV;
+let mintObjectGOV;
+let mintPubkeyGOV;
 let token_vaulter_acc;
 let vaulter_usdc_acc;
 
@@ -42,7 +45,7 @@ let user1_usdc_acc;
 
 const idoName = 'pool1';
 
-const amount_TKN = 1000_000_000_000;
+const amount_GOV = 1000_000_000_000;
 const amount_USDC = 1000_000_000;
 
 describe("launchpad-demo", () => {
@@ -65,26 +68,18 @@ describe("launchpad-demo", () => {
       "confirmed"
     );
 
-    let rawdata = fs.readFileSync(
-      'tests/keys/step-teST1ieLrLdr4MJPZ7i8mgSCLQ7rTrPRjNnyFdHFaz9.json'
-    );
-    let keyData = JSON.parse(rawdata);
-    mintKeyTKN = anchor.web3.Keypair.fromSecretKey(new Uint8Array(keyData));
-    mintObjectTKN = await utils.createMint(
-      mintKeyTKN,
+    mintKeyGOV = gov_token;
+    mintObjectGOV = await utils.createMint(
+      mintKeyGOV,
       provider,
       provider.wallet.publicKey,
       null,
       9,
       TOKEN_PROGRAM_ID
     );
-    mintPubkeyTKN = mintObjectTKN.publicKey;
+    mintPubkeyGOV = mintObjectGOV.publicKey;
 
-    let usdc_rawdata = fs.readFileSync(
-      'tests/keys/xstep-TestZ4qmw6fCo1uK9oJbobWDgj1sME6hR1ssWQnyjxM.json'
-    );
-    let usdcKeyData = JSON.parse(usdc_rawdata);
-    mintKeyUSDC = anchor.web3.Keypair.fromSecretKey(new Uint8Array(usdcKeyData));
+    mintKeyUSDC = usdc_token;
     mintObjectUSDC = await utils.createMint(
       mintKeyUSDC,
       provider,
@@ -95,18 +90,18 @@ describe("launchpad-demo", () => {
     );
     mintPubkeyUSDC = mintObjectUSDC.publicKey;
 
-    token_vaulter_acc = await mintObjectTKN.createAssociatedTokenAccount(token_vaulter.publicKey);
+    token_vaulter_acc = await mintObjectGOV.createAssociatedTokenAccount(token_vaulter.publicKey);
     await utils.mintToAccount(
       provider,
-      mintPubkeyTKN,
+      mintPubkeyGOV,
       token_vaulter_acc,
-      amount_TKN
+      amount_GOV
     );
     const vaulter_amount = await getTokenBalance(token_vaulter_acc);
-    assert.equal(vaulter_amount, amount_TKN)
+    assert.equal(vaulter_amount, amount_GOV)
 
     vaulter_usdc_acc = await mintObjectUSDC.createAssociatedTokenAccount(usdc_vaulter.publicKey);
-    user1_tkn_acc = await mintObjectTKN.createAssociatedTokenAccount(user1.publicKey);
+    user1_tkn_acc = await mintObjectGOV.createAssociatedTokenAccount(user1.publicKey);
     user1_usdc_acc = await mintObjectUSDC.createAssociatedTokenAccount(user1.publicKey);
 
     await utils.mintToAccount(
@@ -125,7 +120,7 @@ describe("launchpad-demo", () => {
       new u64(amount).mul(new u64(1_000_000_000)).toString(),
     );
 
-    await mintObjectTKN.approve(
+    await mintObjectGOV.approve(
       token_vaulter_acc,
       distributor,
       token_vaulter as Signer,
@@ -156,6 +151,7 @@ describe("launchpad-demo", () => {
       .accounts({
         idoAuthority: provider.wallet.publicKey,
         idoAccount: ido_account_key,
+        govMint: mintKeyGOV.publicKey,
         usdcMint: mintKeyUSDC.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
         tokenProgram: TOKEN_PROGRAM_ID,
@@ -183,7 +179,7 @@ describe("launchpad-demo", () => {
         idoAccount: ido_account_key,
         usdcMint: mintKeyUSDC.publicKey,
         usdcVaultAccount: vaulter_usdc_acc,
-        tokenMint: mintKeyTKN.publicKey,
+        tokenMint: mintKeyGOV.publicKey,
         tokenFrom: token_vaulter_acc,
         userTokenAccount: user1_tkn_acc,
         systemProgram: anchor.web3.SystemProgram.programId,
@@ -219,7 +215,7 @@ describe("launchpad-demo", () => {
         userAuthority: user1.publicKey,
         idoAccount: ido_account_key,
         solVault: sol_vaulter.publicKey,
-        tokenMint: mintKeyTKN.publicKey,
+        tokenMint: mintKeyGOV.publicKey,
         tokenFrom: token_vaulter_acc,
         userTokenAccount: user1_tkn_acc,
         systemProgram: anchor.web3.SystemProgram.programId,

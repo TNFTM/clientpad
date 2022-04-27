@@ -6,8 +6,12 @@ launchpad_demo = "n7g1A1RFUJNSUdfvgWE7dqf7G9QoBbBguTZdUM94HdL"
 [registry]
 url = "https://anchor.projectserum.com"
 
+#[provider]
+#cluster = "localnet"
+#wallet = "./service_wallet.json"
+
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "./service_wallet.json"
 
 [scripts]
