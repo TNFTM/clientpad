@@ -24,8 +24,8 @@ const token_vaulter = anchor.web3.Keypair.generate();
 const usdc_vaulter = anchor.web3.Keypair.generate();
 const sol_vaulter = anchor.web3.Keypair.generate();
 const user1 = anchor.web3.Keypair.generate();
-const one_tkn = 1_000_000_000;
-const one_usdc = 1_000_000;
+const E9 = 1_000_000_000;
+const E6 = 1_000_000;
 
 const gov_token = anchor.web3.Keypair.generate();
 const usdc_token = anchor.web3.Keypair.generate();
@@ -129,6 +129,10 @@ describe("launchpad-demo", () => {
     );
   }
 
+  const old_price_in_sol = 5_000_000;
+  const old_price_in_usdc = 100_000;
+  const price_in_sol = 10_000_000;
+  const price_in_usdc = 200_000;
 
   it("Is initialized!", async () => {
     const [ido_account_key, ido_account_bump] = await PublicKey.findProgramAddress(
@@ -145,8 +149,8 @@ describe("launchpad-demo", () => {
         token_vaulter.publicKey,
         usdc_vaulter.publicKey,
         sol_vaulter.publicKey,
-        new anchor.BN(10),
-        new anchor.BN(20),
+        new anchor.BN(old_price_in_sol), // 0.01 SOL per 1 token
+        new anchor.BN(old_price_in_usdc), // 0.2 USDC per 1 token
       )
       .accounts({
         idoAuthority: provider.wallet.publicKey,
@@ -159,8 +163,23 @@ describe("launchpad-demo", () => {
       })
       .rpc();
 
+    const tx2 = await program.methods.updatePool(
+      token_vaulter.publicKey,
+      usdc_vaulter.publicKey,
+      sol_vaulter.publicKey,
+      new anchor.BN(price_in_sol), // 0.01 SOL per 1 token
+      new anchor.BN(price_in_usdc), // 0.2 USDC per 1 token
+    )
+      .accounts({
+        idoAuthority: provider.wallet.publicKey,
+        idoAccount: ido_account_key,
+        govMint: mintKeyGOV.publicKey,
+        usdcMint: mintKeyUSDC.publicKey,
+      })
+      .rpc();
+
     await approve(1000, ido_account_key);
-    console.log("Your transaction signature", tx);
+    console.log("Your transaction signature", tx2);
   });
 
   it("Exchange Usdc", async () => {
@@ -168,6 +187,8 @@ describe("launchpad-demo", () => {
       [Buffer.from(idoName)],
       program.programId
     );
+
+    const before_user1_usdc_amount = await getTokenBalance(user1_usdc_acc);
 
     const token_amount = 100;
     const tx = await program.methods.exchangeUsdc(
@@ -189,11 +210,14 @@ describe("launchpad-demo", () => {
       .signers([user1])
       .rpc();
 
-    const user1_usdc_amount = await getTokenBalance(user1_usdc_acc);
-    assert.equal(user1_usdc_amount, amount_USDC - 100 * one_usdc);
+    const after_user1_usdc_amount = await getTokenBalance(user1_usdc_acc);
+    const vaulter_usdc_amount = await getTokenBalance(vaulter_usdc_acc);
+
+    assert.equal(before_user1_usdc_amount - after_user1_usdc_amount, token_amount * price_in_usdc);
+    console.log(vaulter_usdc_amount);
 
     const user1_tkn_amount = await getTokenBalance(user1_tkn_acc);
-    assert.equal(user1_tkn_amount, token_amount * one_tkn);
+    assert.equal(user1_tkn_amount, token_amount * E9);
 
     console.log("Your transaction signature", tx);
   });
@@ -204,7 +228,7 @@ describe("launchpad-demo", () => {
       program.programId
     );
 
-    const token_amount = 200;
+    const token_amount = 300;
 
     const before_user1_tkn_amount = await getTokenBalance(user1_tkn_acc);
 
@@ -226,10 +250,11 @@ describe("launchpad-demo", () => {
       .rpc();
 
     const new_user1_tkn_amount = await getTokenBalance(user1_tkn_acc);
-    assert.equal(new_user1_tkn_amount - before_user1_tkn_amount, token_amount * one_tkn);
+    assert.equal(new_user1_tkn_amount - before_user1_tkn_amount, token_amount * E9);
 
     const solAmount = await getSolanaBalance(sol_vaulter.publicKey);
-    assert.equal(solAmount, 2 * one_tkn);
+    assert.equal(solAmount, token_amount * price_in_sol);
+    console.log(solAmount);
 
     console.log("Your transaction signature", tx);
   });

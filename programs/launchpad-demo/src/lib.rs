@@ -28,6 +28,9 @@ declare_id!("n7g1A1RFUJNSUdfvgWE7dqf7G9QoBbBguTZdUM94HdL");
 const USDC_DECIMALS: u8 = 6;
 const GOV_DECIMALS: u8 = 9;
 
+const E9: u128 = 1_000_000_000;
+const E6: u128 = 1_000_000;
+
 #[program]
 pub mod launchpad_demo {
     use super::*;
@@ -64,12 +67,39 @@ pub mod launchpad_demo {
         Ok(())
     }
 
+    pub fn update_pool(
+        ctx: Context<UpdatePool>,
+        gov_vault: Pubkey,
+        usdc_vault: Pubkey,
+        sol_vault: Pubkey,
+        sol_amount_for_token: u64,
+        usdc_amount_for_token: u64,
+    ) -> Result<()> {
+        let ido_account = &mut ctx.accounts.ido_account;
+        msg!("Update");
+
+        ido_account.gov_mint = ctx.accounts.gov_mint.key();
+        ido_account.gov_vault = gov_vault;
+        ido_account.usdc_mint = ctx.accounts.usdc_mint.key();
+        ido_account.usdc_vault = usdc_vault;
+        ido_account.sol_vault = sol_vault;
+
+        ido_account.usdc_amount_for_token = usdc_amount_for_token;
+        ido_account.sol_amount_for_token = sol_amount_for_token;
+        Ok(())
+    }
+
     pub fn exchange_usdc(
         ctx: Context<ExchangeUsdc>,
         token_amount: u64,
     ) -> Result<()> {
-        // todo fix usdc amount
-        let usdc_amount: u64 = 100 * 1_000_000;
+        let usdc_amount: u64 = (token_amount as u128)
+            .checked_mul(ctx.accounts.ido_account.usdc_amount_for_token as u128)
+            .unwrap()
+            .checked_div(E9)
+            .unwrap()
+            .try_into()
+            .unwrap();
 
         let cpi_accounts = token::Transfer {
             from: ctx.accounts.user_usdc.to_account_info(),
@@ -107,8 +137,14 @@ pub mod launchpad_demo {
         ctx: Context<ExchangeSol>,
         token_amount: u64,
     ) -> Result<()> {
-        // todo fix sol amount
-        let sol_amount: u64 = 2 * 1_000_000_000;
+        let sol_amount: u64 = (token_amount as u128)
+            .checked_mul(ctx.accounts.ido_account.sol_amount_for_token as u128)
+            .unwrap()
+            .checked_div(E9)
+            .unwrap()
+            .try_into()
+            .unwrap();
+
 
         invoke(
             &transfer(
@@ -168,6 +204,25 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+pub struct UpdatePool<'info> {
+    #[account(mut)]
+    pub ido_authority: Signer<'info>,
+
+    #[account(
+    mut,
+    seeds = [ido_account.ido_name.as_ref().trim_ascii_whitespace()],
+    bump = ido_account.bumps.ido_account,
+    has_one = ido_authority)]
+    pub ido_account: Box<Account<'info, IdoAccount>>,
+
+    #[account(constraint = gov_mint.decimals == GOV_DECIMALS)]
+    pub gov_mint: Box<Account<'info, Mint>>,
+
+    #[account(constraint = usdc_mint.decimals == USDC_DECIMALS)]
+    pub usdc_mint: Box<Account<'info, Mint>>,
 }
 
 #[derive(Accounts)]
@@ -273,7 +328,7 @@ pub struct IdoAccount {
 
     pub amount_usdc: u64, // 8
     pub amount_sol: u64, // 8
-    pub usdc_amount_for_token: u64, // 8
+    pub usdc_amount_for_token: u64, // 8 // Token price in USDC
     pub sol_amount_for_token: u64,  // 8
 }
 

@@ -95,6 +95,8 @@ program
     'mainnet-beta',
   )
   .requiredOption('-n --name <string>', 'IDO pool name')
+  .requiredOption('--price_in_sol <number>', '1 Token price in SOL')
+  .requiredOption('--price_in_usdc <number>', '1 Token price in USDC')
   .requiredOption('-t --token <string>', 'Government Token address')
   .action(async (_directory: any, cmd: any) => {
     const {
@@ -102,6 +104,8 @@ program
       env,
       name,
       token,
+      price_in_sol,
+      price_in_usdc
     } = cmd.opts();
 
     const serviceKeypair = loadWalletKey(keypair);
@@ -136,16 +140,19 @@ program
     const mintKeyUSDC = new PublicKey(isDev? USDC_TOKEN_ADDRESS_DEV:USDC_TOKEN_ADDRESS);
     const mintKeyGOV = new PublicKey(token);
     const tokenVaulter = serviceKeypair.publicKey;
+    let priceInSol = price_in_sol.replace(/_/g, '');
+    let priceInUsdc = price_in_usdc.replace(/_/g, '');
 
-    const tx = await program.methods.initialize(
-      idoName,
-      bumps,
-      tokenVaulter,
-      tokenVaulter,
-      tokenVaulter,
-      new anchor.BN(10),
-      new anchor.BN(20),
-    )
+    const tx = await program.methods
+      .initialize(
+        idoName,
+        bumps,
+        tokenVaulter,
+        tokenVaulter,
+        tokenVaulter,
+        new anchor.BN(priceInSol),
+        new anchor.BN(priceInUsdc),
+      )
       .accounts({
         idoAuthority: provider.wallet.publicKey,
         idoAccount: idoAccountKey,
